@@ -1,0 +1,66 @@
+# Corre en cada Pull Request y en cada push a main. No usa credenciales de Azure:
+# todo lo que valida se puede comprobar sin tocar la nube.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  TERRAFORM_VERSION: 1.17.1
+
+jobs:
+  app:
+    name: Pruebas de la aplicacion
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Ruff
+        run: uv run --project app --python 3.12 --extra dev ruff check app
+      - name: Pytest
+        run: uv run --project app --python 3.12 --extra dev pytest app -q
+
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - name: Formato
+        run: terraform fmt -check -recursive infra
+      - name: Validar cada raiz
+        run: |
+          for root in infra/bootstrap infra/environments/dev infra/environments/prod infra/environments/local; do
+            terraform -chdir="$root" init -backend=false -input=false
+            terraform -chdir="$root" validate
+          done
+      - name: Pruebas con proveedores simulados
+        run: |
+          for module in infra/modules/database infra/modules/stack; do
+            terraform -chdir="$module" init -backend=false -input=false
+            terraform -chdir="$module" test
+          done
+
+  seguridad-costos:
+    name: Seguridad y costos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Checkov
+        run: uvx --python 3.12 checkov --config-file .checkov.yaml
+      - name: Pruebas del estimador
+        run: uvx --python 3.12 --with pytest pytest cost/tests -q
+      - name: Presupuesto con planes de ejemplo
+        run: |
+          python3 cost/estimate.py --offline --budget 5 \
+            --plan dev=cost/fixtures/dev-plan.json \
+            --plan prod=cost/fixtures/prod-plan.json

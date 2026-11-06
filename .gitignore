@@ -1,0 +1,14 @@
+.deploy/
+.deploy-metadata.json
+.floci/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.venv/
+*.db
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+uv.lock
+.archify/

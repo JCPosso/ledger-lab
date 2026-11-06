@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ledger · Billetera transaccional en Azure</title>
+<meta name="description" content="Aplicación de laboratorio: transferencias ACID sobre Azure SQL, desplegadas con Terraform y GitHub Actions.">
+<style>
+  :root {
+    --navy: #071a3d;
+    --navy-2: #0b2a63;
+    --blue: #1668dc;
+    --blue-strong: #0f52b5;
+    --sky: #6db8ff;
+    --tint: #eaf3ff;
+    --page: #f4f8fe;
+    --surface: #ffffff;
+    --ink: #0c1f3f;
+    --muted: #55688a;
+    --line: #d7e3f4;
+    --ok: #0b7a55;
+    --ok-tint: #e3f7ef;
+    --bad: #b3261e;
+    --bad-tint: #fdecea;
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--page); color: var(--ink); line-height: 1.55; }
+  a { color: inherit; }
+  .wrap { width: min(1120px, 100% - 40px); margin-inline: auto; }
+
+  .top { background: var(--navy); color: #fff; }
+  .top nav { display: flex; align-items: center; gap: 24px; padding: 16px 0; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.15rem; text-decoration: none; }
+  .brand svg { display: block; }
+  .links { display: flex; gap: 20px; margin-left: auto; align-items: center; flex-wrap: wrap; }
+  .links a { color: #cfe2ff; text-decoration: none; font-size: .95rem; }
+  .links a:hover { color: #fff; text-decoration: underline; }
+  .env { font-size: .78rem; font-weight: 600; padding: 3px 10px; border-radius: 999px;
+         background: rgba(109, 184, 255, .18); color: #cfe7ff; border: 1px solid rgba(109, 184, 255, .4); }
+
+  .hero { background: linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 45%, var(--blue-strong) 100%); color: #fff; padding: 56px 0 72px; }
+  .hero-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 48px; align-items: start; }
+  .eyebrow { margin: 0 0 12px; color: var(--sky); font-weight: 600; font-size: .9rem; letter-spacing: .02em; }
+  h1 { font-size: clamp(2.1rem, 4.4vw, 3.2rem); line-height: 1.12; margin: 0 0 18px; letter-spacing: -.02em; }
+  .lead { font-size: 1.12rem; color: #d6e6ff; margin: 0 0 26px; max-width: 58ch; }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; padding: 0; margin: 0; list-style: none; }
+  .tags li { background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .2);
+             padding: 5px 12px; border-radius: 999px; font-size: .85rem; }
+
+  .card { background: var(--surface); color: var(--ink); border-radius: 16px; padding: 26px;
+          box-shadow: 0 24px 60px rgba(4, 22, 58, .28); }
+  .card h2 { margin: 0 0 4px; font-size: 1.3rem; }
+  .hint { margin: 0 0 16px; color: var(--muted); font-size: .92rem; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: var(--tint); padding: 4px;
+          border-radius: 10px; margin-bottom: 16px; }
+  .tabs button { background: transparent; color: var(--blue-strong); box-shadow: none; padding: 8px; font-weight: 600; }
+  .tabs button:hover { background: rgba(22, 104, 220, .08); }
+  .tabs button[aria-selected="true"] { background: var(--surface); box-shadow: 0 1px 4px rgba(7, 26, 61, .16); }
+  form { display: grid; gap: 12px; }
+  label { display: grid; gap: 4px; font-size: .88rem; font-weight: 600; }
+  input { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: #fff; color: var(--ink); width: 100%; }
+  input:focus { outline: 2px solid var(--blue); outline-offset: 1px; border-color: var(--blue); }
+  button { font: inherit; font-weight: 600; cursor: pointer; border: 0; border-radius: 9px; padding: 11px 16px;
+           background: var(--blue); color: #fff; transition: background .15s ease; }
+  button:hover { background: var(--blue-strong); }
+  button:disabled { opacity: .6; cursor: wait; }
+  button:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+  .secondary { background: var(--tint); color: var(--blue-strong); }
+  .secondary:hover { background: #d8e8ff; }
+  .quiet { background: transparent; color: var(--muted); padding: 4px 8px; font-weight: 500; }
+  .quiet:hover { background: var(--tint); }
+
+  .message { margin: 12px 0 0; padding: 10px 12px; border-radius: 9px; font-size: .9rem; }
+  .message.ok { background: var(--ok-tint); color: var(--ok); }
+  .message.bad { background: var(--bad-tint); color: var(--bad); }
+  [hidden] { display: none !important; }
+
+  .wallet-head { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+  .who { margin: 0; color: var(--muted); font-size: .85rem; overflow-wrap: anywhere; }
+  .balance { background: linear-gradient(135deg, var(--blue-strong), var(--blue)); color: #fff; padding: 16px 18px;
+             border-radius: 12px; margin: 12px 0 16px; }
+  .balance small { color: #d6e6ff; }
+  .balance strong { display: block; font-size: 1.9rem; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+  .row { display: grid; grid-template-columns: 1fr 110px; gap: 10px; }
+  .history { margin-top: 18px; }
+  .history h3 { margin: 0 0 6px; font-size: .95rem; }
+  .history ul { list-style: none; margin: 0; padding: 0; max-height: 170px; overflow: auto; }
+  .history li { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: .88rem; }
+  .history time { color: var(--muted); }
+  .amount { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .amount.in { color: var(--ok); }
+  .empty { color: var(--muted); font-size: .88rem; margin: 4px 0 0; }
+  .replay { margin-top: 12px; padding: 12px; background: var(--tint); border-radius: 10px; font-size: .88rem; }
+  .replay p { margin: 0 0 8px; }
+  .replay button { padding: 7px 12px; font-size: .86rem; }
+  code { font-family: ui-monospace, SFMono-Regular, Consolas, Menlo, monospace; font-size: .86em; background: var(--tint);
+         color: var(--blue-strong); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+
+  section.band { padding: 60px 0; }
+  section.band.alt { background: var(--surface); border-block: 1px solid var(--line); }
+  section h2.title { font-size: clamp(1.5rem, 3vw, 2.05rem); margin: 0 0 8px; letter-spacing: -.01em; }
+  .sub { color: var(--muted); max-width: 68ch; margin: 0 0 30px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .feature { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  .alt .feature { background: var(--page); }
+  .feature h3 { margin: 0 0 6px; font-size: 1.02rem; color: var(--blue-strong); }
+  .feature p { margin: 0; font-size: .92rem; color: var(--muted); }
+
+  .flow { list-style: none; counter-reset: paso; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .flow li { counter-increment: paso; position: relative; padding: 18px; background: var(--page); border-radius: 14px; border: 1px solid var(--line); }
+  .flow li::before { content: counter(paso); display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+                     background: var(--blue); color: #fff; font-weight: 700; margin-bottom: 10px; }
+  .flow strong { display: block; margin-bottom: 4px; }
+  .flow span { color: var(--muted); font-size: .9rem; }
+
+  .stack { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 14px; overflow: hidden; border: 1px solid var(--line); }
+  .stack th, .stack td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: .93rem; vertical-align: top; }
+  .stack thead th { background: var(--navy-2); color: #fff; font-weight: 600; }
+  .stack tr:last-child td { border-bottom: 0; }
+  .stack td:first-child { font-weight: 600; white-space: nowrap; }
+  .table-scroll { overflow-x: auto; }
+
+  footer { background: var(--navy); color: #bcd3f5; padding: 26px 0; font-size: .88rem; }
+  footer p { margin: 0; }
+
+  @media (max-width: 900px) {
+    .hero { padding: 40px 0 52px; }
+    .hero-grid { grid-template-columns: 1fr; gap: 32px; }
+    .grid-4, .flow { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 560px) {
+    .grid-4, .flow { grid-template-columns: 1fr; }
+    .row { grid-template-columns: 1fr; }
+    .links { margin-left: 0; gap: 14px; }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } button { transition: none; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <nav aria-label="Principal">
+      <a class="brand" href="#inicio">
+        <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect width="26" height="26" rx="7" fill="#1668dc"/><path d="M8 7v12h10" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M13 12.5h5" stroke="#6db8ff" stroke-width="2.6" stroke-linecap="round"/></svg>
+        Ledger
+      </a>
+      <div class="links">
+        <a href="#que-es">Qué es</a>
+        <a href="#como-funciona">Cómo funciona</a>
+        <a href="#plataforma">Plataforma</a>
+        <span class="env" id="env" hidden></span>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main id="inicio">
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <p class="eyebrow">PEMU 2026 · Laboratorio de aplicación transaccional en Azure</p>
+        <h1>Una billetera donde el dinero nunca se pierde ni se duplica</h1>
+        <p class="lead">Ledger es una aplicación de práctica para aprender cómo se construye y se despliega un sistema transaccional en la nube. Cree una cuenta, envíe dinero ficticio a otra persona y compruebe qué garantiza la base de datos.</p>
+        <ul class="tags" aria-label="Tecnologías">
+          <li>Azure Container Apps</li>
+          <li>Azure SQL</li>
+          <li>Key Vault</li>
+          <li>Terraform</li>
+          <li>GitHub Actions</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <section id="auth" aria-label="Acceso">
+          <h2 id="auth-title">Entre a su billetera</h2>
+          <p class="hint">Los datos son de práctica. Cada cuenta nueva recibe $1.000 ficticios. No use una contraseña real.</p>
+          <div class="tabs" role="tablist" aria-label="Tipo de acceso">
+            <button type="button" role="tab" id="tab-login" aria-selected="true">Iniciar sesión</button>
+            <button type="button" role="tab" id="tab-register" aria-selected="false">Crear cuenta</button>
+          </div>
+          <form id="auth-form">
+            <label>Correo
+              <input id="email" type="email" placeholder="usted@ejemplo.com" autocomplete="username" required>
+            </label>
+            <label>Contraseña
+              <input id="password" type="password" placeholder="Mínimo 10 caracteres" autocomplete="current-password" minlength="10" required>
+            </label>
+            <button id="auth-submit">Iniciar sesión</button>
+          </form>
+        </section>
+
+        <section id="wallet" aria-label="Billetera" hidden>
+          <div class="wallet-head">
+            <div>
+              <h2>Su billetera</h2>
+              <p class="who" id="who"></p>
+            </div>
+            <button type="button" class="quiet" id="logout">Salir</button>
+          </div>
+          <div class="balance">
+            <small>Saldo disponible</small>
+            <strong id="balance">—</strong>
+          </div>
+          <form id="transfer-form">
+            <label>Correo de destino
+              <input id="to" type="email" placeholder="otra.persona@ejemplo.com" required>
+            </label>
+            <div class="row">
+              <label>Monto
+                <input id="amount" type="number" min="0.01" step="0.01" placeholder="0,00" required>
+              </label>
+              <label>&nbsp;
+                <button id="transfer-submit">Enviar</button>
+              </label>
+            </div>
+          </form>
+          <div class="replay" id="replay" hidden>
+            <p><strong>Pruebe la idempotencia.</strong> Reenvíe la misma transferencia con la misma clave, como haría un cliente tras un corte de red. No se cobra dos veces.</p>
+            <button type="button" class="secondary" id="replay-button">Reenviar el mismo pago</button>
+          </div>
+          <div class="history">
+            <h3>Movimientos</h3>
+            <p class="empty" id="empty">Todavía no tiene movimientos.</p>
+            <ul id="entries"></ul>
+          </div>
+        </section>
+
+        <p class="message" id="message" role="status" hidden></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" id="que-es">
+    <div class="wrap">
+      <h2 class="title">¿De qué se trata?</h2>
+      <p class="sub">Una transferencia parece sencilla, pero se debe descontar de una cuenta y sumar en otra como una sola operación, aunque lleguen muchas solicitudes a la vez o la red falle. Esta aplicación muestra cómo lograrlo.</p>
+      <div class="grid-4">
+        <article class="feature">
+          <h3>Atomicidad</h3>
+          <p>El débito y el crédito se confirman en una misma transacción: ocurren los dos o no ocurre ninguno.</p>
+        </article>
+        <article class="feature">
+          <h3>Sin doble gasto</h3>
+          <p>El saldo se verifica y se descuenta en una sola sentencia SQL, así dos pagos simultáneos no pueden gastar el mismo dinero.</p>
+        </article>
+        <article class="feature">
+          <h3>Idempotencia</h3>
+          <p>Cada pago lleva una clave única. Si el cliente reintenta, recibe la misma transferencia en lugar de un segundo cobro.</p>
+        </article>
+        <article class="feature">
+          <h3>Partida doble</h3>
+          <p>Cada transferencia crea un débito y un crédito que suman cero, lo que deja un historial que se puede auditar.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="band alt" id="como-funciona">
+    <div class="wrap">
+      <h2 class="title">Cómo funciona una transferencia</h2>
+      <p class="sub">Esto ocurre cada vez que pulsa «Enviar».</p>
+      <ol class="flow">
+        <li><strong>Autenticación</strong><span>La API valida el token JWT que recibió al iniciar sesión.</span></li>
+        <li><strong>Registro único</strong><span>Inserta la transferencia. La base rechaza una clave de idempotencia repetida.</span></li>
+        <li><strong>Movimiento de saldos</strong><span>Actualiza las cuentas siempre en el mismo orden, para evitar interbloqueos.</span></li>
+        <li><strong>Confirmación</strong><span>Guarda los dos asientos y confirma. Ante cualquier fallo, todo se revierte.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="band" id="plataforma">
+    <div class="wrap">
+      <h2 class="title">La plataforma que la ejecuta</h2>
+      <p class="sub">Toda la infraestructura se define con Terraform y se despliega por ambientes desde GitHub Actions, sin service principal ni secretos de Azure en el repositorio.</p>
+      <div class="table-scroll">
+        <table class="stack">
+          <thead><tr><th scope="col">Pieza</th><th scope="col">Servicio</th><th scope="col">Para qué sirve</th></tr></thead>
+          <tbody>
+            <tr><td>Aplicación</td><td>Azure Container Apps</td><td>Ejecuta el contenedor y escala a cero sin tráfico.</td></tr>
+            <tr><td>Datos</td><td>Azure SQL Database</td><td>Garantiza las transacciones, con la oferta gratuita.</td></tr>
+            <tr><td>Secretos</td><td>Azure Key Vault</td><td>Guarda la conexión y la clave JWT, que la app lee con su identidad administrada.</td></tr>
+            <tr><td>Imagen</td><td>GitHub Container Registry</td><td>Publica la imagen; dev y prod ejecutan el mismo digest.</td></tr>
+            <tr><td>Despliegue</td><td>GitHub Actions y Terraform</td><td>Prueba, revisa seguridad y costos, y despliega con OIDC.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap"><p>Aplicación educativa con dinero ficticio. No ingrese datos personales ni contraseñas reales.</p></div>
+</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const money = new Intl.NumberFormat("es-CO", { style: "currency", currency: "USD", currencyDisplay: "narrowSymbol" });
+let token = null;
+let mode = "login";
+let lastPayment = null;
+
+function say(text, kind = "ok") {
+  const box = $("message");
+  box.textContent = text || "";
+  box.className = `message ${kind}`;
+  box.hidden = !text;
+}
+
+async function api(path, options = {}) {
+  const headers = { "Content-Type": "application/json", ...options.headers };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch(path, { ...options, headers });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = typeof data.detail === "string" ? data.detail : "Revise los datos e intente de nuevo.";
+    throw new Error(detail);
+  }
+  return data;
+}
+
+async function withBusy(button, work) {
+  button.disabled = true;
+  try {
+    await work();
+  } catch (error) {
+    say(error.message === "Failed to fetch" ? "No se pudo contactar la aplicación. Intente de nuevo." : error.message, "bad");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function setMode(next) {
+  mode = next;
+  const registering = next === "register";
+  $("tab-login").setAttribute("aria-selected", String(!registering));
+  $("tab-register").setAttribute("aria-selected", String(registering));
+  $("auth-title").textContent = registering ? "Cree su cuenta" : "Entre a su billetera";
+  $("auth-submit").textContent = registering ? "Crear cuenta" : "Iniciar sesión";
+  $("password").autocomplete = registering ? "new-password" : "current-password";
+  say("");
+}
+
+function show(loggedIn) {
+  $("auth").hidden = loggedIn;
+  $("wallet").hidden = !loggedIn;
+}
+
+async function refresh() {
+  const account = await api("/api/account");
+  $("balance").textContent = money.format(account.balance_cents / 100);
+  $("empty").hidden = account.entries.length > 0;
+  $("entries").replaceChildren(...account.entries.map((entry) => {
+    const item = document.createElement("li");
+    const when = document.createElement("time");
+    when.dateTime = entry.created_at;
+    when.textContent = new Date(entry.created_at).toLocaleString("es-CO", { dateStyle: "medium", timeStyle: "short" });
+    const amount = document.createElement("span");
+    amount.className = entry.delta_cents > 0 ? "amount in" : "amount";
+    amount.textContent = `${entry.delta_cents > 0 ? "+" : "−"}${money.format(Math.abs(entry.delta_cents) / 100)}`;
+    item.append(when, amount);
+    return item;
+  }));
+}
+
+async function pay(payment) {
+  return api("/api/transfers", {
+    method: "POST",
+    headers: { "Idempotency-Key": payment.key },
+    body: JSON.stringify({ to_email: payment.to, amount_cents: payment.cents }),
+  });
+}
+
+$("tab-login").addEventListener("click", () => setMode("login"));
+$("tab-register").addEventListener("click", () => setMode("register"));
+
+$("auth-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  withBusy($("auth-submit"), async () => {
+    const email = $("email").value;
+    const body = JSON.stringify({ email, password: $("password").value });
+    if (mode === "register") await api("/api/auth/register", { method: "POST", body });
+    token = (await api("/api/auth/login", { method: "POST", body })).access_token;
+    $("password").value = "";
+    $("who").textContent = email;
+    show(true);
+    say("");
+    await refresh();
+  });
+});
+
+$("transfer-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  withBusy($("transfer-submit"), async () => {
+    const payment = {
+      key: crypto.randomUUID(),
+      to: $("to").value,
+      cents: Math.round(Number($("amount").value) * 100),
+    };
+    const transfer = await pay(payment);
+    lastPayment = { ...payment, id: transfer.id };
+    $("replay").hidden = false;
+    event.target.reset();
+    say(`Transferencia confirmada por ${money.format(payment.cents / 100)}.`);
+    await refresh();
+  });
+});
+
+$("replay-button").addEventListener("click", () => {
+  withBusy($("replay-button"), async () => {
+    const before = $("balance").textContent;
+    const transfer = await pay(lastPayment);
+    await refresh();
+    const same = transfer.id === lastPayment.id && before === $("balance").textContent;
+    say(same
+      ? "La API devolvió la misma transferencia y su saldo no cambió: no hubo un segundo cobro."
+      : "Resultado inesperado: revise los movimientos.", same ? "ok" : "bad");
+  });
+});
+
+$("logout").addEventListener("click", () => {
+  token = null;
+  lastPayment = null;
+  $("replay").hidden = true;
+  show(false);
+  say("");
+});
+
+fetch("/healthz").then((response) => response.json()).then((health) => {
+  $("env").textContent = `Ambiente: ${health.environment}`;
+  $("env").hidden = false;
+}).catch(() => {});
+</script>
+</body>
+</html>

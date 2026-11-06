@@ -1,0 +1,136 @@
+{
+  "_nota": "Plan de ejemplo para CI; el despliegue real evalua el plan generado por terraform.",
+  "planned_values": {
+    "root_module": {
+      "child_modules": [
+        {
+          "resources": [
+            {
+              "address": "module.stack.azurerm_resource_group.this",
+              "mode": "managed",
+              "type": "azurerm_resource_group",
+              "values": {
+                "location": "eastus"
+              }
+            },
+            {
+              "address": "module.stack.random_string.suffix",
+              "mode": "managed",
+              "type": "random_string",
+              "values": {}
+            },
+            {
+              "address": "module.stack.random_password.jwt",
+              "mode": "managed",
+              "type": "random_password",
+              "values": {}
+            },
+            {
+              "address": "module.stack.module.database.random_password.admin",
+              "mode": "managed",
+              "type": "random_password",
+              "values": {}
+            },
+            {
+              "address": "module.stack.module.database.azurerm_mssql_server.this",
+              "mode": "managed",
+              "type": "azurerm_mssql_server",
+              "values": {}
+            },
+            {
+              "address": "module.stack.module.database.azurerm_mssql_firewall_rule.azure_services",
+              "mode": "managed",
+              "type": "azurerm_mssql_firewall_rule",
+              "values": {}
+            },
+            {
+              "address": "module.stack.module.database.azapi_resource.free[0]",
+              "mode": "managed",
+              "type": "azapi_resource",
+              "values": {
+                "type": "Microsoft.Sql/servers/databases@2023-08-01",
+                "body": {
+                  "properties": {
+                    "useFreeLimit": true,
+                    "freeLimitExhaustionBehavior": "AutoPause"
+                  }
+                }
+              }
+            },
+            {
+              "address": "module.stack.module.key_vault.azurerm_key_vault.this",
+              "mode": "managed",
+              "type": "azurerm_key_vault",
+              "values": {}
+            },
+            {
+              "address": "module.stack.module.key_vault.azurerm_role_assignment.deployer",
+              "mode": "managed",
+              "type": "azurerm_role_assignment",
+              "values": {}
+            },
+            {
+              "address": "module.stack.module.key_vault.time_sleep.rbac_propagation",
+              "mode": "managed",
+              "type": "time_sleep",
+              "values": {}
+            },
+            {
+              "address": "module.stack.module.key_vault.azurerm_key_vault_secret.this[\"database-url\"]",
+              "mode": "managed",
+              "type": "azurerm_key_vault_secret",
+              "values": {}
+            },
+            {
+              "address": "module.stack.module.key_vault.azurerm_key_vault_secret.this[\"jwt-secret\"]",
+              "mode": "managed",
+              "type": "azurerm_key_vault_secret",
+              "values": {}
+            },
+            {
+              "address": "module.stack.module.app.azurerm_container_app_environment.this",
+              "mode": "managed",
+              "type": "azurerm_container_app_environment",
+              "values": {}
+            },
+            {
+              "address": "module.stack.module.app.azurerm_user_assigned_identity.app",
+              "mode": "managed",
+              "type": "azurerm_user_assigned_identity",
+              "values": {}
+            },
+            {
+              "address": "module.stack.module.app.azurerm_role_assignment.secrets_reader",
+              "mode": "managed",
+              "type": "azurerm_role_assignment",
+              "values": {}
+            },
+            {
+              "address": "module.stack.module.app.time_sleep.rbac_propagation",
+              "mode": "managed",
+              "type": "time_sleep",
+              "values": {}
+            },
+            {
+              "address": "module.stack.module.app.azurerm_container_app.this",
+              "mode": "managed",
+              "type": "azurerm_container_app",
+              "values": {
+                "template": [
+                  {
+                    "container": [
+                      {
+                        "cpu": 0.25,
+                        "memory": "0.5Gi"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

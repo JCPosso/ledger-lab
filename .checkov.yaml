@@ -1,0 +1,8 @@
+# Cada excepcion debe explicar su razon. Se revisan en docs/seguridad.md.
+directory:
+  - infra
+framework:
+  - terraform
+download-external-modules: false
+quiet: true
+compact: true

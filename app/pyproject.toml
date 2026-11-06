@@ -1,0 +1,31 @@
+[project]
+name = "ledger"
+version = "0.1.0"
+description = "Billetera transaccional del laboratorio de Azure"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sqlalchemy>=2.0.30",
+    "pyjwt>=2.8",
+    "email-validator>=2.1",
+]
+
+[project.optional-dependencies]
+mssql = ["pyodbc>=5.1"]
+dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.6"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ledger"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]

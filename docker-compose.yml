@@ -1,0 +1,32 @@
+services:
+  app:
+    profiles: [container]
+    build:
+      context: ./app
+      args:
+        # La licencia del driver ODBC de Microsoft la acepta quien ejecuta: https://aka.ms/odbc18eula
+        ACCEPT_MSODBC_EULA: ${ACCEPT_MSODBC_EULA:-}
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: local
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/ledger.db}
+      JWT_SECRET: ${JWT_SECRET:-solo-para-uso-local-no-usar-en-azure-0123456789}
+    volumes:
+      - ledger-data:/data
+
+  floci-az:
+    profiles: [floci]
+    image: floci/floci-az:latest
+    ports:
+      - "4577:4577"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./.floci:/app/data
+    environment:
+      FLOCI_AZ_TLS_ENABLED: "true"
+      # Con Y se inicia un SQL Server real, sujeto a su licencia. Con N, solo el plano ARM.
+      FLOCI_AZ_SERVICES_SQL_ACCEPT_EULA: ${ACCEPT_SQL_EULA:-N}
+
+volumes:
+  ledger-data:

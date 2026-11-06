@@ -1,0 +1,48 @@
+# Promueve una misma imagen por los ambientes: primero dev y, si pasa, prod.
+# Se ejecuta a mano: Actions > deploy > Run workflow.
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      digest:
+        description: Digest publicado por publish-image (sha256:...)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: Resolver imagen
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.ref.outputs.ref }}
+    steps:
+      - id: ref
+        env:
+          OWNER: ${{ github.repository_owner }}
+          DIGEST: ${{ inputs.digest }}
+        run: |
+          if ! [[ "$DIGEST" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "::error::El digest debe tener el formato sha256:<64 caracteres hexadecimales>"
+            exit 1
+          fi
+          echo "ref=ghcr.io/$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')/ledger@$DIGEST" >> "$GITHUB_OUTPUT"
+
+  dev:
+    needs: image
+    permissions:
+      contents: read
+      id-token: write # Permite pedir a GitHub el token OIDC que Azure intercambia por acceso.
+    uses: ./.github/workflows/deploy-env.yml
+    with:
+      environment: dev
+      image: ${{ needs.image.outputs.ref }}
+
+  # TODO (Parte 6): agregue aqui el job "prod".
+  #  - Debe ejecutarse solo si "image" y "dev" terminaron bien.
+  #  - Necesita los mismos permisos que el job "dev".
+  #  - Llama al mismo workflow reutilizable, con el ambiente prod.
+  #  - Debe recibir exactamente la misma imagen que dev: no vuelva a construirla.
