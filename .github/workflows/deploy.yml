@@ -41,8 +41,12 @@ jobs:
       environment: dev
       image: ${{ needs.image.outputs.ref }}
 
-  # TODO (Parte 6): agregue aqui el job "prod".
-  #  - Debe ejecutarse solo si "image" y "dev" terminaron bien.
-  #  - Necesita los mismos permisos que el job "dev".
-  #  - Llama al mismo workflow reutilizable, con el ambiente prod.
-  #  - Debe recibir exactamente la misma imagen que dev: no vuelva a construirla.
+  prod:
+    needs: [image, dev]
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy-env.yml
+    with:
+      environment: prod
+      image: ${{ needs.image.outputs.ref }}
