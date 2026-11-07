@@ -63,6 +63,12 @@ variable "rbac_propagation_wait" {
   default     = "90s"
 }
 
+variable "mode_change_wait" {
+  description = "Espera tras pedir el modo estandar del entorno."
+  type        = string
+  default     = "5m"
+}
+
 variable "tags" {
   description = "Etiquetas."
   type        = map(string)

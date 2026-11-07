@@ -42,6 +42,12 @@ variable "github_repository" {
   }
 }
 
+variable "github_subject_repo" {
+  description = "Repositorio como lo escribe GitHub en el token: usuario@id/repositorio@id. Si queda vacío se usa github_repository."
+  type        = string
+  default     = ""
+}
+
 data "azurerm_client_config" "current" {}
 
 resource "random_string" "suffix" {
@@ -119,7 +125,7 @@ resource "azurerm_federated_identity_credential" "github" {
   user_assigned_identity_id = azurerm_user_assigned_identity.github.id
   audience                  = ["api://AzureADTokenExchange"]
   issuer                    = "https://token.actions.githubusercontent.com"
-  subject                   = "repo:${var.github_repository}:environment:${each.key}"
+  subject                   = "repo:${local.subject_repo}:environment:${each.key}"
 }
 
 locals {
@@ -127,6 +133,7 @@ locals {
 
   # Key Vault Secrets Officer y Key Vault Secrets User: los unicos roles que el pipeline puede asignar.
   assignable_roles = "b86a8fe4-44ce-4948-aee5-eccb2c155cd7, 4633458b-17de-408a-b874-0445c86b69e6"
+  subject_repo     = var.github_subject_repo != "" ? var.github_subject_repo : var.github_repository
 }
 
 # Terraform crea grupos de recursos, asi que el alcance debe ser la suscripcion.
