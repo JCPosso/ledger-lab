@@ -77,6 +77,7 @@ FREE_RESOURCES = {
     "azurerm_key_vault_secret",
     "azurerm_container_app_environment",  # El plan de consumo no cobra por el ambiente.
     "azurerm_storage_container",
+    "azapi_resource_action",  # Solo cambia una propiedad del ambiente; no crea nada que se cobre.
 }
 
 
