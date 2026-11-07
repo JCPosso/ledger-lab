@@ -9,6 +9,10 @@ terraform {
       source  = "hashicorp/time"
       version = "~> 0.12"
     }
+    azapi = {
+      source  = "Azure/azapi"
+      version = "~> 2.0"
+    }
   }
 }
 
@@ -39,6 +43,25 @@ resource "azurerm_container_app_environment" "this" {
   }
 }
 
+# Si la creacion no indica el modo, Azure deja el entorno en "express", que no admite secretos de Key Vault.
+# azurerm no expone este campo, por eso se pide el modo estandar con azapi justo despues de crear el entorno.
+resource "azapi_resource_action" "standard_mode" {
+  type        = "Microsoft.App/managedEnvironments@2025-10-02-preview"
+  resource_id = azurerm_container_app_environment.this.id
+  method      = "PATCH"
+  body = {
+    properties = {
+      environmentMode = "WorkloadProfiles"
+    }
+  }
+}
+
+# El cambio de modo pasa por un estado intermedio; la app se crea cuando ya termino.
+resource "time_sleep" "standard_mode" {
+  depends_on      = [azapi_resource_action.standard_mode]
+  create_duration = var.mode_change_wait
+}
+
 # Identidad asignada por el usuario: existe, y tiene permisos, antes de crear la app.
 # Con una identidad del sistema la primera revision fallaria al leer los secretos.
 resource "azurerm_user_assigned_identity" "app" {
@@ -67,7 +90,7 @@ resource "azurerm_container_app" "this" {
   revision_mode                = "Single"
   workload_profile_name        = "Consumption"
   tags                         = var.tags
-  depends_on                   = [time_sleep.rbac_propagation]
+  depends_on                   = [time_sleep.rbac_propagation, time_sleep.standard_mode]
 
   identity {
     type         = "UserAssigned"
