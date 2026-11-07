@@ -110,9 +110,6 @@ def transfer(
     for account_id in sorted(deltas):
         delta = deltas[account_id]
         statement = update(Account).where(Account.id == account_id)
-        if delta < 0:
-            # Verificar y descontar en una sola sentencia impide el doble gasto bajo concurrencia.
-            statement = statement.where(Account.balance_cents >= -delta)
         result = session.execute(
             statement.values(balance_cents=Account.balance_cents + delta)
             .execution_options(synchronize_session=False)
