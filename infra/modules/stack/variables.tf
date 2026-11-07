@@ -29,6 +29,12 @@ variable "image" {
   }
 }
 
+variable "container_app_environment_id" {
+  description = "Entorno de Container Apps ya existente, para compartirlo. Con null el stack crea el suyo."
+  type        = string
+  default     = null
+}
+
 variable "max_replicas" {
   description = "Tope de replicas."
   type        = number

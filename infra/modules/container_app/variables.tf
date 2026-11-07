@@ -63,6 +63,12 @@ variable "rbac_propagation_wait" {
   default     = "90s"
 }
 
+variable "environment_id" {
+  description = "Entorno de Container Apps existente. Con null el modulo crea uno propio."
+  type        = string
+  default     = null
+}
+
 variable "mode_change_wait" {
   description = "Espera tras pedir el modo estandar del entorno."
   type        = string
