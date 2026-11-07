@@ -49,6 +49,13 @@ variable "use_free_offer" {
   default = true
 }
 
+# Azure for Students permite un solo entorno de Container Apps por suscripcion (MaxNumberOfGlobalEnvironmentsInSubExceeded).
+# Prod conserva su propia app, base, Key Vault, identidad y estado, pero corre en el entorno que crea dev.
+data "azurerm_container_app_environment" "shared" {
+  name                = "cae-ledger-dev"
+  resource_group_name = "rg-ledger-dev"
+}
+
 module "stack" {
   source = "../../modules/stack"
 
@@ -56,9 +63,12 @@ module "stack" {
   location          = var.location
   database_location = var.database_location
   image             = var.image
-  use_free_offer    = var.use_free_offer
-  max_replicas      = 3
-  jwt_minutes       = 15
+
+  container_app_environment_id = data.azurerm_container_app_environment.shared.id
+
+  use_free_offer = var.use_free_offer
+  max_replicas   = 3
+  jwt_minutes    = 15
 }
 
 output "app_url" {

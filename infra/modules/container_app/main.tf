@@ -16,8 +16,31 @@ terraform {
   }
 }
 
+locals {
+  # Con environment_id la app se despliega en un entorno que ya existe; sin el, el modulo crea el suyo.
+  # Azure for Students permite un solo entorno de Container Apps por suscripcion.
+  create_environment = var.environment_id == null
+  environment_id     = coalesce(var.environment_id, one(azurerm_container_app_environment.this[*].id))
+}
+
+# El entorno antes no tenia indice; estos bloques conservan el estado ya creado.
+moved {
+  from = azurerm_container_app_environment.this
+  to   = azurerm_container_app_environment.this[0]
+}
+
+moved {
+  from = azapi_resource_action.standard_mode
+  to   = azapi_resource_action.standard_mode[0]
+}
+
+moved {
+  from = time_sleep.standard_mode
+  to   = time_sleep.standard_mode[0]
+}
+
 resource "azurerm_log_analytics_workspace" "this" {
-  count = var.logs_enabled ? 1 : 0
+  count = var.logs_enabled && local.create_environment ? 1 : 0
 
   name                = "log-${var.name}"
   resource_group_name = var.resource_group_name
@@ -29,11 +52,13 @@ resource "azurerm_log_analytics_workspace" "this" {
 }
 
 resource "azurerm_container_app_environment" "this" {
+  count = local.create_environment ? 1 : 0
+
   name                       = "cae-${var.name}"
   resource_group_name        = var.resource_group_name
   location                   = var.location
-  logs_destination           = var.logs_enabled ? "log-analytics" : null
-  log_analytics_workspace_id = var.logs_enabled ? azurerm_log_analytics_workspace.this[0].id : null
+  logs_destination           = length(azurerm_log_analytics_workspace.this) > 0 ? "log-analytics" : null
+  log_analytics_workspace_id = one(azurerm_log_analytics_workspace.this[*].id)
   tags                       = var.tags
 
   # Azure lo agrega siempre; declararlo evita un cambio perpetuo en cada plan. No tiene cargo fijo.
@@ -46,8 +71,10 @@ resource "azurerm_container_app_environment" "this" {
 # Si la creacion no indica el modo, Azure deja el entorno en "express", que no admite secretos de Key Vault.
 # azurerm no expone este campo, por eso se pide el modo estandar con azapi justo despues de crear el entorno.
 resource "azapi_resource_action" "standard_mode" {
+  count = local.create_environment ? 1 : 0
+
   type        = "Microsoft.App/managedEnvironments@2025-10-02-preview"
-  resource_id = azurerm_container_app_environment.this.id
+  resource_id = azurerm_container_app_environment.this[0].id
   method      = "PATCH"
   body = {
     properties = {
@@ -58,6 +85,8 @@ resource "azapi_resource_action" "standard_mode" {
 
 # El cambio de modo pasa por un estado intermedio; la app se crea cuando ya termino.
 resource "time_sleep" "standard_mode" {
+  count = local.create_environment ? 1 : 0
+
   depends_on      = [azapi_resource_action.standard_mode]
   create_duration = var.mode_change_wait
 }
@@ -86,7 +115,7 @@ resource "time_sleep" "rbac_propagation" {
 resource "azurerm_container_app" "this" {
   name                         = "ca-${var.name}"
   resource_group_name          = var.resource_group_name
-  container_app_environment_id = azurerm_container_app_environment.this.id
+  container_app_environment_id = local.environment_id
   revision_mode                = "Single"
   workload_profile_name        = "Consumption"
   tags                         = var.tags
